@@ -27,3 +27,13 @@ Plans, prices, contract length, SLAs, coverage for a specific city/property, equ
 ## Site reference
 
 Primary public source: https://www.celerityfiber.com/
+
+## Repo sync policy
+
+This folder is versioned at `https://github.com/ValentinazabalaMKT/CELERITY-FIBER` (private repo, `main` branch). **The repo is the source of truth.**
+
+Whenever a new file is created or an existing one is updated locally, commit and push it to `origin/main` before considering the task done — do not leave local-only changes.
+
+Exceptions (not pushed, see `.gitignore`):
+- `node_modules/`, `.DS_Store`, Excel lock files (`~$*`), SQLite `-wal`/`-shm` files, and the Schedule app's local `celerity.db`
+- `files_source_celerity/2.Celerity Fiber Company Overview (Editable).pptx` (105MB, over GitHub's 100MB push limit) — lives instead as a GitHub Release asset under tag `source-assets-v1`, with a `.LEEME.md` pointer left in its original folder
