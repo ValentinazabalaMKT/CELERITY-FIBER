@@ -1,0 +1,8 @@
+node_modules/
+.DS_Store
+~$*
+*.db-wal
+*.db-shm
+
+# Excede el límite de 100MB de GitHub para push normal; subido como GitHub Release asset
+files_source_celerity/2.Celerity Fiber Company Overview (Editable).pptx

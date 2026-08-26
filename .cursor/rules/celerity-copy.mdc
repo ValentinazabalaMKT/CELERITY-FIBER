@@ -1,0 +1,15 @@
+---
+description: Celerity Fiber copy voice, claims safety, and reading level
+globs: docs/**/*.{md,mdx},**/*copy*,**/*messaging*,**/*campaign*,**/*email*,**/*landing*
+alwaysApply: false
+---
+
+# Copy standards
+
+- Voice: clear, confident, human, specialist, premium without pretension
+- Reading level (general): US Grade 8�10 � short sentences, benefit before spec, short paragraphs, bullets, clear CTAs
+- Recurring concepts: fiber connectivity, white-glove service, local support, tailored solutions, reliable infrastructure, property-wide connectivity, seamless resident experience, dedicated support, flexible deployment, long-term partnership
+- Creative territories OK: white-glove fiber � local expertise � property experience � future-ready � simplification
+- If stating speed/price/uptime, pull only from `docs/brand/FACT-SHEET.md` or mark pending
+- Prefer: �Built for reliable connectivity� / �Speeds up to [X]� over absolute guarantees
+- Weak ? strong: �White-glove support� ? �A dedicated team helps coordinate installation, resident communication and ongoing support.�
