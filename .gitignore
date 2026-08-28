@@ -3,6 +3,9 @@ node_modules/
 ~$*
 *.db-wal
 *.db-shm
+.venv/
+__pycache__/
+*.pyc
 
 # Excede el límite de 100MB de GitHub para push normal; subido como GitHub Release asset
 files_source_celerity/2.Celerity Fiber Company Overview (Editable).pptx

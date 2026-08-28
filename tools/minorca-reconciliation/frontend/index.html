@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Minorca Data Reconciliation</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<header class="topbar">
+  <div class="topbar-main">
+    <div class="topbar-title">
+      <h1>Minorca Data Reconciliation</h1>
+      <p class="subtitle">IT vs GLDS vs Salesforce</p>
+    </div>
+    <div class="topbar-meta">
+      <span class="chip chip-property" id="propertyChip">Property: Minorca</span>
+      <span class="meta-line" id="dataSourceDate">Data source date: —</span>
+      <span class="meta-line" id="generatedAt"></span>
+    </div>
+  </div>
+  <div class="topbar-actions">
+    <div class="lang-toggle" id="langToggle">
+      <button class="lang-btn active" data-lang="en" id="langEnBtn">EN</button>
+      <button class="lang-btn" data-lang="es" id="langEsBtn">ES</button>
+    </div>
+    <button class="btn btn-ghost" id="refreshBtn" data-i18n="refresh">↻ Refresh Data</button>
+    <button class="btn btn-outline" id="exportAllBtn" data-i18n="exportAll">Export All</button>
+    <button class="btn btn-danger-outline" id="exportIssuesBtn" data-i18n="exportIssues">Export Issues</button>
+  </div>
+</header>
+
+<main id="app">
+
+  <section class="dq-banner" id="dqBanner"></section>
+
+  <section class="kpi-grid" id="kpiGrid"></section>
+
+  <section class="panel">
+    <div class="panel-header">
+      <h2 data-i18n="issueSummaryTitle">Inconsistency Summary</h2>
+      <span class="panel-hint" data-i18n="issueSummaryHint">Select one or more categories to see matching records right here</span>
+    </div>
+    <div class="issue-grid" id="issueGrid"></div>
+
+    <div class="category-table-wrap" id="categoryTableWrap">
+      <div class="category-table-header">
+        <span id="categorySelectionLabel"></span>
+        <button class="btn btn-ghost btn-small" id="clearCategorySelectionBtn" data-i18n="clearSelection">Clear selection</button>
+      </div>
+      <div class="table-scroll">
+        <table class="mini-table" id="categoryTable">
+          <thead></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+    <p class="empty-note" id="categoryTableHint" data-i18n="issueSummaryEmptyHint">
+      No category selected yet — click one of the cards above.
+    </p>
+  </section>
+
+  <section class="panel">
+    <div class="panel-header">
+      <h2 data-i18n="matrixTitle">Presence Matrix</h2>
+      <span class="panel-hint" data-i18n="matrixHint">IT device state × GLDS status × Salesforce status</span>
+    </div>
+    <div class="table-scroll">
+      <table class="matrix-table" id="matrixTable"></table>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="panel-header">
+      <h2 data-i18n="detailTitle">Reconciliation Detail</h2>
+      <span class="result-count" id="resultCount"></span>
+    </div>
+
+    <div class="filters" id="filters">
+      <input type="text" id="searchBox" data-i18n-placeholder="searchPlaceholder" placeholder="Search Unit Number or Account Number…" />
+
+      <select id="fStatus"></select>
+      <select id="fIssue"></select>
+      <select id="fItDevice"></select>
+      <select id="fGldsStatus"></select>
+      <select id="fSfStatus"></select>
+      <select id="fAccountMatch"></select>
+
+      <button class="btn btn-ghost" id="clearFiltersBtn" data-i18n="clearFilters">Clear filters</button>
+    </div>
+
+    <div class="table-scroll">
+      <table class="main-table" id="mainTable">
+        <thead>
+          <tr id="mainTableHeadRow"></tr>
+        </thead>
+        <tbody id="mainTableBody"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="panel" id="unassignedPanel">
+    <div class="panel-header">
+      <h2 data-i18n="unassignedTitle">Records With No Unit Reference</h2>
+      <span class="panel-hint" data-i18n="unassignedHint">Kept for auditability — excluded from the unit-level grid above because they carry no unit number in their source file</span>
+    </div>
+    <div class="unassigned-grid" id="unassignedGrid"></div>
+  </section>
+
+</main>
+
+<div class="overlay" id="overlay"></div>
+<aside class="detail-panel" id="detailPanel">
+  <div class="detail-header">
+    <h2 id="detailPanelTitle">Unit</h2>
+    <button class="detail-close" id="detailClose">✕</button>
+  </div>
+  <div class="detail-body" id="detailBody"></div>
+</aside>
+
+<script src="app.js"></script>
+</body>
+</html>
