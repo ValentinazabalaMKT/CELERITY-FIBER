@@ -6,6 +6,10 @@ A customer self-service portal for **Celerity Fiber** residents — check servic
 
 This first version runs entirely on **mock data** — no backend, no credentials required. Every data-fetching function lives behind a small API layer (`src/lib/api.ts`) shaped like the real calls this app will eventually make, so swapping mocks for a real backend later shouldn't touch any page or component.
 
+## Live deployment
+
+**https://my-celerity.vercel.app** — deployed on Vercel, auto-redeploys on every push to `main` (via the CELERITY-FIBER repo's Vercel GitHub integration, with `my-celerity/` set as the project's root directory). No environment variables required — see the note in "Environment variables" below.
+
 ## Quick start
 
 ```bash
