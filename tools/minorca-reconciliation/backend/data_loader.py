@@ -20,10 +20,12 @@ DOWNLOADS_DIR = os.path.expanduser("~/Downloads")
 IT_FILENAME = "IT Users-Units Data Base.xlsx"
 GLDS_FILENAME = "Customer_Address_List_JH_08282026.xlsx"
 SF_FILENAME = "Copy of Customers vz-2026-08-28-11-41-43.xlsx"
+PK_FILENAME = "Customer_Pk_08282026.xlsx"
 
 IT_PATH = os.path.join(DOWNLOADS_DIR, IT_FILENAME)
 GLDS_PATH = os.path.join(DOWNLOADS_DIR, GLDS_FILENAME)
 SF_PATH = os.path.join(DOWNLOADS_DIR, SF_FILENAME)
+PK_PATH = os.path.join(DOWNLOADS_DIR, PK_FILENAME)
 
 
 class SourceFileMissing(Exception):
@@ -108,17 +110,39 @@ def load_salesforce():
 
 
 # ---------------------------------------------------------------------------
+# GLDS package/billing export (Customer_Pk) -- one row per billed line item
+# (package, fee, add-on) per account. `SUBS` is the same bare account suffix
+# used by GLDS `Account No.` (016-000684 -> 684) and Salesforce `GLDS Account
+# Number`, so it joins on the account key already used elsewhere.
+# ---------------------------------------------------------------------------
+def load_pk():
+    _require(PK_PATH, "Customer_Pk package export")
+    df = pd.read_excel(PK_PATH, sheet_name="Report", engine="calamine")
+    df = df.rename(columns=lambda c: str(c).strip())
+    df = df.dropna(subset=["SUBS"]).reset_index(drop=True)
+    return df, file_meta(PK_PATH)
+
+
+# ---------------------------------------------------------------------------
 # Normalization helpers (shared by reconcile.py)
 # ---------------------------------------------------------------------------
 _FLOAT_INT_RE = re.compile(r"^\d+\.0+$")
+
+
+_LEADING_ZEROS_BEFORE_LETTER_RE = re.compile(r"^0+(?=[A-Za-z])")
 
 
 def normalize_unit(value):
     """Canonicalize a unit number so '101', '101.0', ' 101 ', 101 (int) all
     collapse to the same key, WITHOUT merging genuinely different units.
     Purely-numeric unit numbers are canonicalized by stripping leading
-    zeros / trailing '.0' (int round-trip). Alphanumeric unit numbers are
-    upper-cased and trimmed instead, left otherwise untouched."""
+    zeros / trailing '.0' (int round-trip). Named units (GYM, COMMON AREA,
+    OFFICE, ...) are upper-cased and trimmed -- and, since GLDS pads its
+    unit field with the same leading-zero convention it uses for numeric
+    units (e.g. '000000GYM'), any leading zeros immediately before the
+    letters are stripped too, so 'GYM' from Salesforce and '000000GYM'
+    from GLDS collapse to the same key. A digit that isn't a zero-pad
+    artifact (not immediately followed by a letter) is left alone."""
     if value is None:
         return None
     if isinstance(value, float) and pd.isna(value):
@@ -134,6 +158,7 @@ def normalize_unit(value):
             return str(int(s))
         except ValueError:
             return s.upper()
+    s = _LEADING_ZEROS_BEFORE_LETTER_RE.sub("", s)
     return s.upper()
 
 

@@ -37,6 +37,8 @@ const STRINGS = {
   colUnit: { en: "Unit", es: "Unidad" },
   colItDevice: { en: "IT Device", es: "Equipo IT" },
   colItSpeed: { en: "IT Speed", es: "Velocidad IT" },
+  colPkgSpeed: { en: "GLDS Package", es: "Paquete GLDS" },
+  colSpeedMatch: { en: "Speed Match", es: "Coincide velocidad" },
   colGldsAccount: { en: "GLDS Account", es: "Cuenta GLDS" },
   colGldsStatus: { en: "GLDS Status", es: "Estado GLDS" },
   colSfAccount: { en: "SF Account", es: "Cuenta SF" },
@@ -53,6 +55,7 @@ const STRINGS = {
   fGldsAll: { en: "GLDS Status: All", es: "Estado GLDS: Todos" },
   fSfAll: { en: "Salesforce Status: All", es: "Estado Salesforce: Todos" },
   fAccountAll: { en: "Account Match: All", es: "Coincide cuenta: Todas" },
+  fSpeedAll: { en: "Speed Match: All", es: "Coincide velocidad: Todas" },
   fMatch: { en: "Match", es: "Coincide" },
   fMismatch: { en: "Mismatch", es: "No coincide" },
   fNA: { en: "N/A", es: "N/D" },
@@ -84,9 +87,10 @@ const STRINGS = {
   reconUnitMatch: { en: "Unit Number Match (GLDS ↔ SF)", es: "Coincidencia de unidad (GLDS ↔ SF)" },
   reconAccountMatch: { en: "GLDS Account", es: "Cuenta GLDS" },
   reconDeviceStatus: { en: "Device Status", es: "Estado del equipo" },
-  reconSpeed: { en: "Speed Comparison", es: "Comparación de velocidad" },
+  reconSpeed: { en: "Speed Comparison (IT vs GLDS Package)", es: "Comparación de velocidad (IT vs paquete GLDS)" },
   deviceIssueElsewhere: { en: "OFF — ISSUE (active elsewhere)", es: "APAGADO — INCONSISTENCIA (activo en otra fuente)" },
-  speedNA: { en: "N/A - No comparable field in GLDS/Salesforce", es: "N/D - Sin campo comparable en GLDS/Salesforce" },
+  speedNoPkg: { en: "N/A - No billed package found in GLDS (Customer_Pk)", es: "N/D - No se encontró paquete facturado en GLDS (Customer_Pk)" },
+  pkgName: { en: "Billed package", es: "Paquete facturado" },
   kIt: {
     unit_raw: { en: "Unit Number", es: "Número de unidad" },
     speed_raw: { en: "Speed", es: "Velocidad" },
@@ -128,6 +132,66 @@ const CATEGORY_LABELS = {
   "Only in IT": { en: "Only in IT", es: "Solo en IT" },
   "Only in GLDS": { en: "Only in GLDS", es: "Solo en GLDS" },
   "Only in Salesforce": { en: "Only in Salesforce", es: "Solo en Salesforce" },
+  "Speed/package mismatch": { en: "Speed/package mismatch", es: "Discrepancia de velocidad/paquete" },
+};
+
+const CATEGORY_DESCRIPTIONS = {
+  "Duplicate records": {
+    en: "This unit has more than one row in a source, and the pattern needs review: either one side has zero or more than one Active row, or GLDS and Salesforce disagree on which account is the active one. (Having exactly one Active row + the rest Inactive/Disconnected on both platforms, pointing to the same account, is normal history and is NOT flagged.) Every row stays visible in the detail panel either way.",
+    es: "Esta unidad tiene más de una fila en alguna fuente, y el patrón necesita revisión: o algún lado tiene cero o más de una fila Activa, o GLDS y Salesforce no coinciden en cuál es la cuenta activa. (Tener exactamente una fila Activa + el resto Inactiva/Desconectada en ambas plataformas, apuntando a la misma cuenta, es historial normal y NO se marca.) Todas las filas quedan visibles en el panel de detalle de todas formas.",
+  },
+  "Account Number mismatch": {
+    en: "For the same unit, the GLDS account number and the Salesforce \"GLDS Account Number\" field don't match — one of the two systems likely has the wrong account linked to this unit.",
+    es: "Para la misma unidad, el número de cuenta de GLDS y el campo \"GLDS Account Number\" de Salesforce no coinciden — probablemente uno de los dos sistemas tiene la cuenta incorrecta vinculada a esta unidad.",
+  },
+  "Account associated with different unit": {
+    en: "This account number is also linked, in the other system, to a different unit than the one shown here — a sign the account was reassigned or migrated in one system without updating the other.",
+    es: "Este número de cuenta también está vinculado, en el otro sistema, a una unidad distinta de la que se muestra aquí — indica que la cuenta se reasignó o migró en un sistema sin actualizar el otro.",
+  },
+  "Active but device OFF": {
+    en: "GLDS and/or Salesforce show this customer as Active, but no active device was found for this unit in the IT equipment database — the customer may be billed for service that isn't actually connected.",
+    es: "GLDS y/o Salesforce muestran a este cliente como Activo, pero no se encontró un equipo activo para esta unidad en la base de IT — el cliente podría estar facturado por un servicio que en realidad no está conectado.",
+  },
+  "Device ON but GLDS inactive": {
+    en: "An active device was found in IT for this unit, but GLDS shows the account as inactive/disconnected/other — possible unbilled or unauthorized service.",
+    es: "Se encontró un equipo activo en IT para esta unidad, pero GLDS muestra la cuenta como inactiva/desconectada/otro — posible servicio no facturado o no autorizado.",
+  },
+  "Device ON but Salesforce inactive": {
+    en: "An active device was found in IT for this unit, but Salesforce shows the customer as inactive/disconnected/cancelled/other — possible unbilled or unauthorized service.",
+    es: "Se encontró un equipo activo en IT para esta unidad, pero Salesforce muestra al cliente como inactivo/desconectado/cancelado/otro — posible servicio no facturado o no autorizado.",
+  },
+  "Device ON but GLDS pending": {
+    en: "The device is active in IT while GLDS shows this account with a pending status — worth confirming the install/activation was fully closed out.",
+    es: "El equipo está activo en IT mientras GLDS muestra esta cuenta con estado pendiente — conviene confirmar que la instalación/activación quedó cerrada.",
+  },
+  "Device ON but Salesforce pending": {
+    en: "The device is active in IT while Salesforce shows this customer with a pending/on-hold status — worth confirming the install/activation was fully closed out.",
+    es: "El equipo está activo en IT mientras Salesforce muestra a este cliente con estado pendiente/en espera — conviene confirmar que la instalación/activación quedó cerrada.",
+  },
+  "Missing in GLDS": {
+    en: "There's an active device in IT for this unit, but no matching record exists in GLDS billing at all.",
+    es: "Hay un equipo activo en IT para esta unidad, pero no existe ningún registro correspondiente en la facturación de GLDS.",
+  },
+  "Missing in Salesforce": {
+    en: "There's an active device in IT for this unit, but no matching record exists in Salesforce at all.",
+    es: "Hay un equipo activo en IT para esta unidad, pero no existe ningún registro correspondiente en Salesforce.",
+  },
+  "Only in IT": {
+    en: "This unit exists only in the IT equipment database; no matching record was found in either GLDS or Salesforce.",
+    es: "Esta unidad existe solo en la base de equipos de IT; no se encontró un registro correspondiente en GLDS ni en Salesforce.",
+  },
+  "Only in GLDS": {
+    en: "This unit exists only in GLDS billing; no matching record was found in either IT or Salesforce.",
+    es: "Esta unidad existe solo en la facturación de GLDS; no se encontró un registro correspondiente en IT ni en Salesforce.",
+  },
+  "Only in Salesforce": {
+    en: "This unit exists only in Salesforce; no matching record was found in either IT or GLDS.",
+    es: "Esta unidad existe solo en Salesforce; no se encontró un registro correspondiente en IT ni en GLDS.",
+  },
+  "Speed/package mismatch": {
+    en: "IT has the device provisioned at a different speed than the package billed in GLDS (Customer_Pk) for this account — could mean an upgrade/downgrade that wasn't reflected on the other side.",
+    es: "IT tiene el equipo aprovisionado a una velocidad distinta a la del paquete facturado en GLDS (Customer_Pk) para esta cuenta — puede indicar un upgrade/downgrade que no se reflejó del otro lado.",
+  },
 };
 
 const STATUS_LABELS = {
@@ -179,6 +243,11 @@ function tFmt(key, vars) {
   return s;
 }
 function tCat(cat) { return (CATEGORY_LABELS[cat] || { en: cat, es: cat })[STATE.lang]; }
+function tCatDesc(cat) {
+  const entry = CATEGORY_DESCRIPTIONS[cat];
+  if (!entry) return "";
+  return entry[STATE.lang] || entry.en;
+}
 function tStatus(cls) { if (!cls) return "—"; return (STATUS_LABELS[cls] || { en: cls, es: cls })[STATE.lang]; }
 function tOverall(v) { return (OVERALL_LABELS[v] || { en: v, es: v })[STATE.lang]; }
 function tMatch(v) { return (MATCH_LABELS[v] || { en: v, es: v })[STATE.lang]; }
@@ -244,7 +313,8 @@ function renderHeader() {
   const it = STATE.summary.sources.it;
   const glds = STATE.summary.sources.glds;
   const sf = STATE.summary.sources.salesforce;
-  const dates = [it.modified, glds.modified, sf.modified].sort().reverse()[0];
+  const pk = STATE.summary.sources.pk;
+  const dates = [it.modified, glds.modified, sf.modified, pk.modified].sort().reverse()[0];
   $("#dataSourceDate").textContent = `${t("dataSourceDate")}: ${dates.split(" ")[0]}`;
   $("#generatedAt").textContent = `${t("generated")}: ${STATE._generatedAt}`;
 }
@@ -258,7 +328,8 @@ function renderDQBanner() {
     <span class="sub" style="margin-left:auto;">
       IT: ${c.it_rows} ${t("itRows")} (${c.it_units} ${t("units")}, ${c.it_unassigned_devices} ${t("unassigned")}) ·
       GLDS: ${c.glds_rows} ${t("itRows")} (${c.glds_units} ${t("units")}, ${c.glds_unassigned_accounts} ${t("noUnitOnFile")}) ·
-      Salesforce: ${c.sf_rows} ${t("itRows")} (${c.sf_units} ${t("units")})
+      Salesforce: ${c.sf_rows} ${t("itRows")} (${c.sf_units} ${t("units")}) ·
+      Customer_Pk: ${c.pk_rows} ${t("itRows")} (${c.pk_speed_packages} ${t("colPkgSpeed")})
     </span>
   `;
 }
@@ -292,6 +363,7 @@ const CATEGORY_SEVERITY = {
   "Missing in Salesforce": "CRITICAL",
   "Device ON but GLDS pending": "WARNING",
   "Device ON but Salesforce pending": "WARNING",
+  "Speed/package mismatch": "WARNING",
 };
 function issueSeverity(cat) {
   if (CATEGORY_SEVERITY[cat]) return CATEGORY_SEVERITY[cat];
@@ -310,6 +382,7 @@ function renderIssueGrid() {
     <div class="issue-card ${STATE.selectedCategories.has(cat) ? "selected" : ""}" data-cat="${cat}" data-sev="${issueSeverity(cat)}">
       <span class="name"><span class="check">✓</span>${tCat(cat)}</span>
       <span class="count">${cats[cat]}</span>
+      ${tCatDesc(cat) ? `<div class="issue-tooltip">${tCatDesc(cat)}</div>` : ""}
     </div>
   `).join("");
   $$(".issue-card").forEach(el => el.addEventListener("click", () => {
@@ -342,6 +415,9 @@ function renderCategoryTable() {
   const cols = [
     ["colUnit", r => `<strong>${r.unit}</strong>`],
     ["colItDevice", r => deviceBadge(r.it_exists)],
+    ["colItSpeed", r => r.it_speed || "—"],
+    ["colPkgSpeed", r => r.pkg_speed || "—"],
+    ["colSpeedMatch", r => matchBadge(r.speed_match)],
     ["colGldsStatus", r => statusBadge(r.glds_status_class, r.glds_status_raw)],
     ["colSfStatus", r => statusBadge(r.sf_status_class, r.sf_status_raw)],
     ["colOverallStatus", r => overallBadge(r.overall_status)],
@@ -418,6 +494,12 @@ function populateFilterOptions() {
     { value: "MISMATCH", label: t("fMismatch") },
     { value: "N/A", label: t("fNA") },
   ], cur.accountMatch, t("fAccountAll"));
+
+  fillSelect($("#fSpeedMatch"), [
+    { value: "MATCH", label: t("fMatch") },
+    { value: "MISMATCH", label: t("fMismatch") },
+    { value: "N/A", label: t("fNA") },
+  ], cur.speedMatch, t("fSpeedAll"));
 }
 
 function currentFilters() {
@@ -429,6 +511,7 @@ function currentFilters() {
     gldsStatus: $("#fGldsStatus") ? $("#fGldsStatus").value : "",
     sfStatus: $("#fSfStatus") ? $("#fSfStatus").value : "",
     accountMatch: $("#fAccountMatch") ? $("#fAccountMatch").value : "",
+    speedMatch: $("#fSpeedMatch") ? $("#fSpeedMatch").value : "",
   };
 }
 
@@ -440,6 +523,7 @@ function recordMatches(r, f) {
   if (f.gldsStatus && r.glds_status_class !== f.gldsStatus) return false;
   if (f.sfStatus && r.sf_status_class !== f.sfStatus) return false;
   if (f.accountMatch && r.account_match !== f.accountMatch) return false;
+  if (f.speedMatch && r.speed_match !== f.speedMatch) return false;
   if (f.q) {
     const hay = [r.unit, r.glds_account_norm, r.sf_account_norm, r.glds_account_full, r.sf_account_raw]
       .filter(Boolean).join(" ").toLowerCase();
@@ -449,7 +533,7 @@ function recordMatches(r, f) {
 }
 
 function renderTableHead() {
-  const cols = ["colUnit", "colItDevice", "colItSpeed", "colGldsAccount", "colGldsStatus",
+  const cols = ["colUnit", "colItDevice", "colItSpeed", "colPkgSpeed", "colSpeedMatch", "colGldsAccount", "colGldsStatus",
     "colSfAccount", "colSfStatus", "colUnitMatch", "colAccountMatch", "colOverallStatus", "colIssue"];
   $("#mainTableHeadRow").innerHTML = cols.map(k => `<th>${t(k)}</th>`).join("");
 }
@@ -458,7 +542,7 @@ function renderTable(records) {
   $("#resultCount").textContent = `${records.length} ${tFmt("resultCount", { total: STATE.records.length })}`;
   const tbody = $("#mainTableBody");
   if (records.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="11" style="text-align:center;color:var(--text-muted);padding:24px;">${t("noResults")}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="13" style="text-align:center;color:var(--text-muted);padding:24px;">${t("noResults")}</td></tr>`;
     return;
   }
   tbody.innerHTML = records.map(r => `
@@ -466,6 +550,8 @@ function renderTable(records) {
       <td><strong>${r.unit}</strong></td>
       <td>${deviceBadge(r.it_exists)}</td>
       <td>${r.it_speed || "—"}</td>
+      <td>${r.pkg_speed || "—"}</td>
+      <td>${matchBadge(r.speed_match)}</td>
       <td>${r.glds_account_full || "—"}</td>
       <td>${statusBadge(r.glds_status_class, r.glds_status_raw)}</td>
       <td>${r.sf_account_raw ?? "—"}</td>
@@ -526,7 +612,8 @@ function openDetail(unit) {
       `).join("")
     : `<p class="empty-note">${t("noItRecord")}</p>`;
 
-  const gldsSection = r.glds_detail.length
+  const pkgLine = r.pkg_exists ? fieldRow(t("pkgName"), `${r.pkg_name} (${r.pkg_speed})`) : "";
+  const gldsSection = pkgLine + (r.glds_detail.length
     ? r.glds_detail.map((d, i) => `
         ${r.glds_detail.length > 1 ? `<div class="dup-row"><strong>${t("row")} ${i + 1}${r.duplicate ? ` (${t("duplicate")})` : ""}${d.bridged_via_account ? ` — ${t("bridgedNote")}` : ""}</strong></div>` : ""}
         ${fieldRow(tField("kGlds", "account"), d.account)}
@@ -536,7 +623,7 @@ function openDetail(unit) {
         ${fieldRow(tField("kGlds", "name"), d.name)}
         ${fieldRow(tField("kGlds", "address"), d.address)}
       `).join("")
-    : `<p class="empty-note">${t("noGldsRecord")}</p>`;
+    : (r.pkg_exists ? "" : `<p class="empty-note">${t("noGldsRecord")}</p>`));
 
   const sfSection = r.sf_detail.length
     ? r.sf_detail.map((d, i) => `
@@ -550,11 +637,14 @@ function openDetail(unit) {
     : `<p class="empty-note">${t("noSfRecord")}</p>`;
 
   const deviceOffIsIssue = !r.it_exists && r.issues.some(i => i.category === "Active but device OFF");
+  const speedLine = r.pkg_exists
+    ? `${tMatch(r.speed_match)} (${t("colItSpeed")}: ${r.it_speed || "—"} · ${t("pkgName")}: ${r.pkg_speed || "—"})`
+    : t("speedNoPkg");
   const reconLines = [
     [t("reconUnitMatch"), tMatch(r.unit_match_glds_sf)],
     [t("reconAccountMatch"), tMatch(r.account_match)],
     [t("reconDeviceStatus"), r.it_exists ? tDevice(true) : (deviceOffIsIssue ? t("deviceIssueElsewhere") : tDevice(false))],
-    [t("reconSpeed"), t("speedNA")],
+    [t("reconSpeed"), speedLine],
   ].map(([k, v]) => `<div class="recon-line"><span>${k}</span><span>${v}</span></div>`).join("");
 
   const issuesHtml = r.issues.length
@@ -598,11 +688,12 @@ function wireEvents() {
     $("#fGldsStatus").addEventListener(evt, applyFilters);
     $("#fSfStatus").addEventListener(evt, applyFilters);
     $("#fAccountMatch").addEventListener(evt, applyFilters);
+    $("#fSpeedMatch").addEventListener(evt, applyFilters);
   });
 
   $("#clearFiltersBtn").addEventListener("click", () => {
     $("#searchBox").value = "";
-    ["#fStatus", "#fIssue", "#fItDevice", "#fGldsStatus", "#fSfStatus", "#fAccountMatch"]
+    ["#fStatus", "#fIssue", "#fItDevice", "#fGldsStatus", "#fSfStatus", "#fAccountMatch", "#fSpeedMatch"]
       .forEach(sel => { $(sel).value = ""; });
     applyFilters();
   });

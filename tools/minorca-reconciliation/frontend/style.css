@@ -114,6 +114,7 @@ main { max-width: 1400px; margin: 0 auto; padding: 24px 32px 64px; }
 /* ---------------- Issue category chips ---------------- */
 .issue-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; }
 .issue-card {
+  position: relative;
   border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; cursor: pointer;
   transition: 0.12s ease; background: #fbfcfe; display: flex; justify-content: space-between; align-items: center;
 }
@@ -133,6 +134,20 @@ main { max-width: 1400px; margin: 0 auto; padding: 24px 32px 64px; }
 .issue-card[data-sev="DUPLICATE"] .count { background: var(--purple-bg); color: var(--purple); }
 .issue-card[data-sev="NOT FOUND"] .count { background: var(--gray-bg); color: var(--gray); }
 .empty-note { color: var(--text-muted); font-size: 13px; padding: 8px 0; }
+
+/* ---------------- Issue card hover legend ---------------- */
+.issue-tooltip {
+  position: absolute; left: 0; right: 0; bottom: calc(100% + 8px); z-index: 20;
+  background: #16233f; color: #e8edf9; font-size: 12px; font-weight: 500; line-height: 1.45;
+  border-radius: 8px; padding: 10px 12px; box-shadow: 0 6px 20px rgba(10,15,30,0.25);
+  opacity: 0; visibility: hidden; transform: translateY(4px); pointer-events: none;
+  transition: opacity 0.12s ease, transform 0.12s ease;
+}
+.issue-tooltip::after {
+  content: ""; position: absolute; top: 100%; left: 20px; width: 9px; height: 9px;
+  background: #16233f; transform: rotate(45deg); margin-top: -5px;
+}
+.issue-card:hover .issue-tooltip { opacity: 1; visibility: visible; transform: translateY(0); }
 
 /* ---------------- Inline category drill-down table ---------------- */
 .category-table-wrap { display: none; margin-top: 16px; border-top: 1px solid var(--border); padding-top: 16px; }

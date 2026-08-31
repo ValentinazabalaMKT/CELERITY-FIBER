@@ -1,0 +1,236 @@
+@import "tailwindcss";
+
+/* ---------------------------------------------------------------------
+   Celerity Fiber design tokens.
+   Colors confirmed live on celerityfiber.com (brand purple #582C83,
+   fiber-teal #0087AD, primary CTA gradient linear-gradient(129deg,
+   #0087AD 0%, #582C83 72%)) and cross-checked against the palette
+   already used in this repo's other Celerity tool
+   (Schedule/celerity-marketing-workspace/client/tailwind.config.ts).
+   ------------------------------------------------------------------- */
+:root {
+  --background: #ffffff;
+  --foreground: #16121f;
+  --surface: #faf9fc;
+  --surface-alt: #f4f2f8;
+  --card: #ffffff;
+  --card-foreground: #16121f;
+  --muted: #f0eef5;
+  --muted-foreground: #6b6478;
+  --border: #e7e3ee;
+  --input: #e2deea;
+  --ring: #582c83;
+
+  /* Celerity purple */
+  --brand-50: #f6f2fb;
+  --brand-100: #ece3f5;
+  --brand-200: #d6c2e9;
+  --brand-300: #bc9bd9;
+  --brand-400: #9d6fc4;
+  --brand-500: #7f4cab;
+  --brand-600: #663690;
+  --brand-700: #582c83;
+  --brand-800: #472369;
+  --brand-900: #361b50;
+  --brand-950: #241236;
+
+  /* Celerity fiber-teal */
+  --teal-50: #eef9fc;
+  --teal-100: #d6f0f7;
+  --teal-200: #ade0ee;
+  --teal-300: #7ccbe0;
+  --teal-400: #43aecc;
+  --teal-500: #1c93b3;
+  --teal-600: #0087ad;
+  --teal-700: #046f90;
+  --teal-800: #095c76;
+  --teal-900: #0c4c62;
+  --teal-950: #063040;
+
+  --success: #1e8a5f;
+  --success-bg: #e9f7f0;
+  --warning: #b8790a;
+  --warning-bg: #fff6e0;
+  --danger: #c62f3f;
+  --danger-bg: #fdecee;
+  --info: var(--teal-600);
+  --info-bg: var(--teal-50);
+
+  /* The exact primary-CTA gradient used on celerityfiber.com */
+  --gradient-brand: linear-gradient(129deg, var(--teal-600) 0%, var(--brand-700) 72%);
+  --gradient-hero: radial-gradient(120% 120% at 20% 0%, #1a1030 0%, #0a0714 55%, #050310 100%);
+
+  --shadow-soft: 0 1px 2px rgba(22, 18, 31, 0.04), 0 4px 16px rgba(22, 18, 31, 0.05);
+  --shadow-card-hover: 0 2px 4px rgba(22, 18, 31, 0.05), 0 12px 28px rgba(22, 18, 31, 0.08);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-surface-alt: var(--surface-alt);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --color-brand-50: var(--brand-50);
+  --color-brand-100: var(--brand-100);
+  --color-brand-200: var(--brand-200);
+  --color-brand-300: var(--brand-300);
+  --color-brand-400: var(--brand-400);
+  --color-brand-500: var(--brand-500);
+  --color-brand-600: var(--brand-600);
+  --color-brand-700: var(--brand-700);
+  --color-brand-800: var(--brand-800);
+  --color-brand-900: var(--brand-900);
+  --color-brand-950: var(--brand-950);
+
+  --color-teal-50: var(--teal-50);
+  --color-teal-100: var(--teal-100);
+  --color-teal-200: var(--teal-200);
+  --color-teal-300: var(--teal-300);
+  --color-teal-400: var(--teal-400);
+  --color-teal-500: var(--teal-500);
+  --color-teal-600: var(--teal-600);
+  --color-teal-700: var(--teal-700);
+  --color-teal-800: var(--teal-800);
+  --color-teal-900: var(--teal-900);
+  --color-teal-950: var(--teal-950);
+
+  --color-success: var(--success);
+  --color-success-bg: var(--success-bg);
+  --color-warning: var(--warning);
+  --color-warning-bg: var(--warning-bg);
+  --color-danger: var(--danger);
+  --color-danger-bg: var(--danger-bg);
+  --color-info: var(--info);
+  --color-info-bg: var(--info-bg);
+
+  --font-sans: var(--font-inter);
+  --font-display: var(--font-inter);
+
+  --radius-lg: 1rem;
+  --radius-xl: 1.25rem;
+  --radius-2xl: 1.5rem;
+
+  --animate-fade-in: fade-in 0.2s ease-out;
+  --animate-slide-up: slide-up 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  --animate-scale-in: scale-in 0.15s ease-out;
+  --animate-shimmer: shimmer 1.6s ease-in-out infinite;
+
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+  @keyframes slide-up {
+    from {
+      transform: translateY(8px);
+      opacity: 0;
+    }
+    to {
+      transform: translateY(0);
+      opacity: 1;
+    }
+  }
+  @keyframes scale-in {
+    from {
+      transform: scale(0.96);
+      opacity: 0;
+    }
+    to {
+      transform: scale(1);
+      opacity: 1;
+    }
+  }
+  @keyframes shimmer {
+    0% {
+      background-position: -400px 0;
+    }
+    100% {
+      background-position: 400px 0;
+    }
+  }
+}
+
+* {
+  border-color: var(--border);
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  background-color: var(--surface);
+  color: var(--foreground);
+  font-family: var(--font-inter), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+::selection {
+  background-color: rgba(88, 44, 131, 0.18);
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background-color: #d8d3e4;
+  border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background-color: #c2bad3;
+}
+
+:focus-visible {
+  outline: 2px solid var(--brand-700);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.brand-gradient {
+  background-image: var(--gradient-brand);
+}
+
+.brand-gradient-text {
+  background-image: var(--gradient-brand);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.skeleton {
+  background: linear-gradient(90deg, #efecf4 0%, #f7f5fa 40%, #efecf4 80%);
+  background-size: 800px 100%;
+  animation: shimmer 1.6s ease-in-out infinite;
+}
+
+/* Subtle fiber dot-field motif, used sparingly on dark hero surfaces
+   (login screen, dashboard hero) to echo the dotted "C" in the real
+   Celerity Fiber logo without becoming decoration for its own sake. */
+.fiber-dots {
+  background-image: radial-gradient(rgba(255, 255, 255, 0.14) 1px, transparent 1px);
+  background-size: 18px 18px;
+}

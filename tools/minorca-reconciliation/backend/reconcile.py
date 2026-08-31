@@ -31,6 +31,7 @@ from data_loader import (
     load_it,
     load_glds,
     load_salesforce,
+    load_pk,
     normalize_unit,
     normalize_account_from_glds,
     normalize_account_from_salesforce,
@@ -98,13 +99,27 @@ SEVERITY_RANK = {"DUPLICATE": 4, "CRITICAL": 3, "NOT FOUND": 2, "WARNING": 1, "O
 
 
 # ---------------------------------------------------------------------------
-# Speed parsing (IT only -- GLDS and Salesforce have no comparable column,
-# confirmed by inspecting both files' real headers; see README).
+# Speed parsing.
+#
+# IT's `Speed` column (e.g. `1000Mbps`, `Down: 250Mbps - Up: 100Mbps`) is
+# compared against the billed package name (`PKNAME`) from the Customer_Pk
+# GLDS export (e.g. `700 Mbps Platinum internet`, `1Gb`,
+# `Ultimate 250Mbps x 100Mbps`). Customer_Pk has no unit number -- it is
+# joined onto the master record via account number (`SUBS`, the same bare
+# GLDS account suffix used elsewhere), same as GLDS/Salesforce. Non-internet
+# billing lines (Admin Fee, Physical Bill Fee, DVR add-ons, protection
+# plans, membership fees) don't contain a speed value and are excluded from
+# the comparison automatically, since they fail the speed regexes below.
 # ---------------------------------------------------------------------------
 _SPEED_SIMPLE_RE = re.compile(r"^\s*(\d+(?:\.\d+)?)\s*mbps\s*$", re.IGNORECASE)
 _SPEED_DOWN_UP_RE = re.compile(
     r"down[:\s]*([\d.]+)\s*mbps.*?up[:\s]*([\d.]+)\s*mbps", re.IGNORECASE
 )
+_PKG_DOWNUP_RE = re.compile(
+    r"(\d+(?:\.\d+)?)\s*mbps\s*x\s*(\d+(?:\.\d+)?)\s*mbps", re.IGNORECASE
+)
+_PKG_GBPS_RE = re.compile(r"(\d+(?:\.\d+)?)\s*gb(?:ps)?\b", re.IGNORECASE)
+_PKG_MBPS_RE = re.compile(r"(\d+(?:\.\d+)?)\s*mbps", re.IGNORECASE)
 
 
 def parse_speed(raw):
@@ -123,6 +138,28 @@ def parse_speed(raw):
     return {"raw": raw_s, "down": None, "up": None, "label": raw_s}
 
 
+def parse_pkg_speed(raw):
+    """Extract a down/up Mbps value from a Customer_Pk `PKNAME` line, or
+    (None, None) if the line is a fee/add-on rather than an internet
+    package (e.g. 'Admin Fee', 'Physical Bill Fee')."""
+    if raw is None or (isinstance(raw, float) and pd.isna(raw)):
+        return {"raw": None, "down": None, "up": None, "label": None}
+    raw_s = str(raw).strip()
+    m = _PKG_DOWNUP_RE.search(raw_s)
+    if m:
+        down, up = float(m.group(1)), float(m.group(2))
+        return {"raw": raw_s, "down": down, "up": up, "label": f"{int(down)}/{int(up)} Mbps"}
+    m = _PKG_GBPS_RE.search(raw_s)
+    if m:
+        down = float(m.group(1)) * 1000
+        return {"raw": raw_s, "down": down, "up": down, "label": f"{int(down)} Mbps"}
+    m = _PKG_MBPS_RE.search(raw_s)
+    if m:
+        down = float(m.group(1))
+        return {"raw": raw_s, "down": down, "up": down, "label": f"{int(down)} Mbps"}
+    return {"raw": raw_s, "down": None, "up": None, "label": None}
+
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -134,6 +171,18 @@ def pick_primary(rows):
     if not rows:
         return None
     return sorted(rows, key=lambda r: STATUS_PRECEDENCE.get(r.get("status_class"), 5))[0]
+
+
+def is_clean_history_split(rows):
+    """A GLDS/Salesforce source having >1 row for the same unit is only a
+    normal 'old record disconnected, new record activated' pattern -- not a
+    data-quality problem -- when exactly one of the rows is Active and the
+    rest are not. Two-or-more Active rows (ambiguous) or zero Active rows
+    (all stale) are NOT a clean split and still need manual review."""
+    if len(rows) <= 1:
+        return True
+    actives = [r for r in rows if r.get("status_class") == "Active"]
+    return len(actives) == 1
 
 
 def _safe(v):
@@ -148,8 +197,27 @@ def build_master():
     it_df, it_meta = load_it()
     glds_df, glds_meta = load_glds()
     sf_df, sf_meta = load_salesforce()
+    pk_df, pk_meta = load_pk()
 
     pad_width = detect_account_pad_width(glds_df, "Account No.")
+
+    # ---- Customer_Pk rows (billed packages, keyed by account only) ----
+    PKG_by_acct = defaultdict(list)
+    pk_fee_lines = 0
+    for _, r in pk_df.iterrows():
+        acct_norm = normalize_account_from_salesforce(r.get("SUBS"), pad_width)
+        if not acct_norm:
+            continue
+        pkname = _safe(r.get("PKNAME"))
+        speed = parse_pkg_speed(pkname)
+        if speed["down"] is None:
+            pk_fee_lines += 1
+            continue
+        PKG_by_acct[acct_norm].append({
+            "pkcode": _safe(r.get("PKCODE")),
+            "pkname": pkname,
+            "speed": speed,
+        })
 
     # ---- IT rows ----
     it_rows_all = []
@@ -239,6 +307,28 @@ def build_master():
         if row["acct_norm"]:
             SF_by_acct[row["acct_norm"]].append(row)
 
+    # ---- Bridge: named GLDS units (GYM, OFFICE, COMMON AREA, ...) that
+    # GLDS's fixed-width unit field truncated (empirically 16 characters
+    # total, e.g. raw '000000COMMON ARE' for Salesforce's untruncated
+    # 'COMMON AREA') so they don't get silently kept as a separate,
+    # look-alike unit from Salesforce's full-length version. Only merges
+    # when the truncated GLDS key is an unambiguous prefix of exactly one
+    # non-numeric Salesforce unit key, within a couple characters of it --
+    # conservative on purpose, so it never guesses across genuinely
+    # different named units.
+    _NUMERIC_UNIT_RE = re.compile(r"^\d+$")
+    named_unit_bridged_count = 0
+    for glds_unit in list(GLDS_by_unit.keys()):
+        if _NUMERIC_UNIT_RE.match(glds_unit) or glds_unit in SF_by_unit:
+            continue
+        candidates = [
+            su for su in SF_by_unit
+            if not _NUMERIC_UNIT_RE.match(su) and su.startswith(glds_unit) and len(su) - len(glds_unit) <= 3
+        ]
+        if len(candidates) == 1:
+            GLDS_by_unit[candidates[0]].extend(GLDS_by_unit.pop(glds_unit))
+            named_unit_bridged_count += 1
+
     # ---- Bridge: GLDS rows with NO unit number but whose account number
     # is found in Salesforce -> attach to SF's unit so the pairing isn't lost.
     bridged_glds_by_unit = defaultdict(list)
@@ -272,6 +362,26 @@ def build_master():
 
         glds_acct = glds_primary["acct_norm"] if glds_exists else None
         sf_acct = sf_primary["acct_norm"] if sf_exists else None
+
+        pkg_rows = PKG_by_acct.get(glds_acct, []) if glds_acct else []
+        if not pkg_rows and sf_acct:
+            pkg_rows = PKG_by_acct.get(sf_acct, [])
+        pkg_primary = pkg_rows[0] if pkg_rows else None
+        pkg_exists = pkg_primary is not None
+
+        if it_exists and pkg_exists:
+            it_down = it_primary["speed"]["down"]
+            it_up = it_primary["speed"]["up"]
+            pkg_down = pkg_primary["speed"]["down"]
+            pkg_up = pkg_primary["speed"]["up"]
+            if it_down is None or pkg_down is None:
+                speed_match = "N/A"
+            else:
+                down_ok = it_down == pkg_down
+                up_ok = it_up is None or pkg_up is None or it_up == pkg_up
+                speed_match = "MATCH" if (down_ok and up_ok) else "MISMATCH"
+        else:
+            speed_match = "N/A"
 
         if glds_acct and sf_acct:
             account_match = "MATCH" if glds_acct == sf_acct else "MISMATCH"
@@ -409,7 +519,32 @@ def build_master():
                     ),
                 })
 
-        if duplicate:
+        # Case J -- IT provisioned speed disagrees with the billed package
+        # from Customer_Pk (GLDS billing export, joined by account number).
+        if speed_match == "MISMATCH":
+            issues.append({
+                "category": "Speed/package mismatch",
+                "severity": "WARNING",
+                "description": (
+                    f"Unit {unit}: IT has the device provisioned at "
+                    f"'{it_primary['speed']['label']}', but the billed GLDS package "
+                    f"is '{pkg_primary['pkname']}' ({pkg_primary['speed']['label']})."
+                ),
+            })
+
+        # A duplicate is only flagged as needing review when it ISN'T the
+        # normal "one old disconnected record + one newly active record"
+        # history pattern -- and, when both GLDS and Salesforce carry that
+        # pattern for this unit, only when the Active record they each point
+        # to is actually the same account (i.e. the split is the same across
+        # platforms, not just individually clean).
+        duplicate_is_clean = (
+            len(it_rows) <= 1
+            and is_clean_history_split(glds_rows)
+            and is_clean_history_split(sf_rows)
+            and (account_match == "MATCH" if (glds_exists and sf_exists) else True)
+        )
+        if duplicate and not duplicate_is_clean:
             issues.append({
                 "category": "Duplicate records",
                 "severity": "DUPLICATE",
@@ -441,6 +576,10 @@ def build_master():
             "sf_unit_raw": sf_primary["unit_raw"] if sf_exists else None,
             "it_speed": it_primary["speed"]["label"] if it_exists else None,
             "it_speed_raw": it_primary["speed"]["raw"] if it_exists else None,
+            "pkg_exists": pkg_exists,
+            "pkg_name": pkg_primary["pkname"] if pkg_exists else None,
+            "pkg_code": pkg_primary["pkcode"] if pkg_exists else None,
+            "pkg_speed": pkg_primary["speed"]["label"] if pkg_exists else None,
             "glds_account_full": glds_primary["acct_raw"] if glds_exists else None,
             "glds_account_norm": glds_acct,
             "sf_account_raw": sf_primary["acct_raw"] if sf_exists else None,
@@ -449,7 +588,7 @@ def build_master():
             "glds_status_raw": glds_primary["status_raw"] if glds_exists else None,
             "sf_status_class": sf_status_class,
             "sf_status_raw": sf_primary["status_raw"] if sf_exists else None,
-            "speed_match": "N/A - No comparable field in GLDS/Salesforce",
+            "speed_match": speed_match,
             "unit_match_glds_sf": unit_match_glds_sf,
             "account_match": account_match,
             "duplicate": duplicate,
@@ -480,7 +619,7 @@ def build_master():
     records.sort(key=lambda r: (r["unit"].zfill(10) if r["unit"].isdigit() else r["unit"]))
 
     meta = {
-        "sources": {"it": it_meta, "glds": glds_meta, "salesforce": sf_meta},
+        "sources": {"it": it_meta, "glds": glds_meta, "salesforce": sf_meta, "pk": pk_meta},
         "counts": {
             "it_rows": int(len(it_df)),
             "glds_rows": int(len(glds_df)),
@@ -491,6 +630,11 @@ def build_master():
             "glds_unassigned_accounts": len(glds_unassigned),
             "sf_units": len(sf_rows_all),
             "glds_sf_bridged_via_account": bridged_count,
+            "glds_named_units_bridged": named_unit_bridged_count,
+            "pk_rows": int(len(pk_df)),
+            "pk_fee_lines": pk_fee_lines,
+            "pk_speed_packages": sum(len(v) for v in PKG_by_acct.values()),
+            "pk_accounts_with_package": len(PKG_by_acct),
         },
         "account_pad_width": pad_width,
         "it_unassigned": it_unassigned,
