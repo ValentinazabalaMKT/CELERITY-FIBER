@@ -1,5 +1,7 @@
 # My Celerity
 
+*[Leer esto en español](README.es.md)*
+
 **Your internet. Your account. One place.**
 
 A customer self-service portal for **Celerity Fiber** residents — check service status, manage plans, pay bills, run a speed test, manage connected devices, and get support, all from one app. Conceptually inspired by carrier apps like Mi Claro, but designed to feel like a modern SaaS product (Stripe / Linear / Apple-grade), and built 100% around Celerity Fiber's real brand (colors, gradient, wordmark, tone — see [docs/PRODUCT_SPEC.md](docs/PRODUCT_SPEC.md) for the brand research this was built from).
